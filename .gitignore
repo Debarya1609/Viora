@@ -1,0 +1,33 @@
+# --------------------
+# Python (Backend)
+# --------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+.env.*
+
+# Flask
+instance/
+
+# --------------------
+# Node (Frontend - future)
+# --------------------
+node_modules/
+dist/
+build/
+
+# --------------------
+# OS / Editor
+# --------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --------------------
+# Logs
+# --------------------
+*.log
