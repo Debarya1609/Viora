@@ -1,13 +1,11 @@
-def classify_risk(ai_output, raw_input):
+def classify_risk(raw_input: dict) -> str:
     symptoms = raw_input.get("symptoms", [])
+    mood = raw_input.get("mood", "").lower()
 
-    # High-risk red flags
-    if "chest pain" in symptoms or "severe bleeding" in symptoms:
+    if "chest pain" in symptoms or "shortness of breath" in symptoms:
         return "HIGH"
 
-    # Medium risk if AI confidence is low
-    if ai_output.get("confidence", 1) < 0.4:
+    if mood in ["anxious", "depressed"]:
         return "MEDIUM"
 
-    # Default
     return "LOW"
