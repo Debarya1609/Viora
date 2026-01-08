@@ -1,5 +1,3 @@
-// src/screens/Auth/WelcomeScreen.tsx
-
 import React, { useEffect } from "react";
 import {
   View,
@@ -8,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Image,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -15,7 +14,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { COLORS } from "../../../constants/colors"; // adjust path if needed
+import { COLORS } from "../../../constants/colors";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Welcome">;
@@ -50,11 +49,16 @@ export const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Logo section */}
           <View style={styles.logoSection}>
             <View style={styles.logoWrapper}>
-              {/* Placeholder logo shape; replace with Image if you have logo asset */}
-              <View style={styles.logoInner} />
+              <Image
+                source={require("../../../assets/images/logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.title}>VIORA</Text>
-            <Text style={styles.subtitle}>Your post-discharge care companion</Text>
+            <Text style={styles.subtitle}>
+              Your post-discharge care companion
+            </Text>
           </View>
 
           {/* Feature cards */}
@@ -132,12 +136,12 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
+    zIndex: -1,
   },
-  logoInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: COLORS.cardBackground,
+  logo: {
+    borderRadius:50,
+    width:100,
+    height:100
   },
   title: {
     fontSize: 40,
@@ -159,7 +163,7 @@ const styles = StyleSheet.create({
   featureCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "#ffffff",
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -188,6 +192,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   featureText: {
+    backgroundColor: "transparent",
     flex: 1,
     fontSize: 16,
     color: COLORS.textPrimary,

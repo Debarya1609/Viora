@@ -1,78 +1,107 @@
 // src/screens/Medication/MedicationListScreen.tsx
 
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
-import {
-  Pill,
-  Clock,
-  Info,
-  Plus,
-  CheckCircle,
-} from "lucide-react-native";
+import { Plus } from "lucide-react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../../constants/colors";
+import { api, Medication } from "../../../services/api";
+import { MedicationCard } from "../../../components/cards/MedicationCard";
 
-const medications = [
-  {
-    id: 1,
-    name: "Metformin",
-    dosage: "500mg",
-    frequency: "2x daily",
-    times: ["8:00 AM", "8:00 PM"],
-    nextDose: "8:00 PM",
-    status: "upcoming",
-    notes: "Take with food",
-  },
-  {
-    id: 2,
-    name: "Lisinopril",
-    dosage: "10mg",
-    frequency: "1x daily",
-    times: ["8:00 AM"],
-    nextDose: "Tomorrow 8:00 AM",
-    status: "taken",
-    notes: "For blood pressure",
-  },
-  {
-    id: 3,
-    name: "Aspirin",
-    dosage: "81mg",
-    frequency: "1x daily",
-    times: ["2:00 PM"],
-    nextDose: "2:00 PM",
-    status: "upcoming",
-    notes: "Low dose",
-  },
-  {
-    id: 4,
-    name: "Atorvastatin",
-    dosage: "20mg",
-    frequency: "1x daily",
-    times: ["9:00 PM"],
-    nextDose: "9:00 PM",
-    status: "upcoming",
-    notes: "Take at bedtime",
-  },
-  {
-    id: 5,
-    name: "Omeprazole",
-    dosage: "40mg",
-    frequency: "1x daily",
-    times: ["7:00 AM"],
-    nextDose: "Tomorrow 7:00 AM",
-    status: "missed",
-    notes: "Before breakfast",
-  },
-];
+type MedicationsScreenProps = {
+  navigation: any;
+};
 
-export const MedicationsScreen: React.FC<any> = ({ navigation }) => {
+export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
+  navigation,
+}) => {
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const handleAddMedication = () => {
     navigation.navigate("AddMedication");
+  };
+
+  const loadMedications = async () => {
+    try {
+      setError(null);
+      const data = await api.getMedications();
+      setMedications(data);
+    } catch (e: any) {
+      setError(e.message || "Failed to load medications");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadMedications();
+    }, [])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadMedications();
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={COLORS.primaryBlue} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.centered}>
+          <Text style={{ color: "red", marginBottom: 8 }}>{error}</Text>
+          <TouchableOpacity style={styles.actionPrimary} onPress={loadMedications}>
+            <Text style={styles.actionPrimaryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!medications.length) {
+      return (
+        <View style={styles.centered}>
+          <Text style={{ color: COLORS.textSecondary, marginBottom: 8 }}>
+            No medications yet.
+          </Text>
+          <TouchableOpacity
+            style={styles.actionPrimary}
+            onPress={handleAddMedication}
+          >
+            <Text style={styles.actionPrimaryText}>Add your first medication</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return medications.map((med) => (
+      <MedicationCard
+        key={med.id}
+        medication={med}
+        onPress={() => {
+          // later: navigate to medication detail/edit
+        }}
+      />
+    ));
   };
 
   return (
@@ -80,6 +109,9 @@ export const MedicationsScreen: React.FC<any> = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -88,152 +120,24 @@ export const MedicationsScreen: React.FC<any> = ({ navigation }) => {
         </View>
 
         <View style={styles.body}>
-          {/* Summary card */}
+          {/* Summary card (static for now) */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryTopRow}>
               <View>
                 <Text style={styles.summaryLabel}>Today&apos;s Progress</Text>
-                <Text style={styles.summaryValue}>3/5</Text>
+                <Text style={styles.summaryValue}>—</Text>
               </View>
               <View style={styles.circleWrapper}>
                 <View style={styles.circleBg} />
               </View>
             </View>
             <Text style={styles.summaryText}>
-              Keep it up! You&apos;re on track today.
+              Your medication adherence will appear here once you start logging
+              doses.
             </Text>
           </View>
 
-          {/* Medications list */}
-          {medications.map((med) => {
-            const bgColor =
-              med.status === "taken"
-                ? "#ECFDF3"
-                : med.status === "missed"
-                ? "#FEF2F2"
-                : "#FFFFFF";
-
-            const borderColor =
-              med.status === "taken"
-                ? "#BBF7D0"
-                : med.status === "missed"
-                ? "#FECACA"
-                : "#E5E7EB";
-
-            const iconBg =
-              med.status === "taken"
-                ? "#DCFCE7"
-                : med.status === "missed"
-                ? "#FEE2E2"
-                : "#DBEAFE";
-
-            const iconColor =
-              med.status === "taken"
-                ? "#16A34A"
-                : med.status === "missed"
-                ? "#DC2626"
-                : COLORS.primaryBlue;
-
-            const noteBg =
-              med.status === "taken"
-                ? "#DCFCE7"
-                : med.status === "missed"
-                ? "#FEE2E2"
-                : "#DBEAFE";
-
-            const noteIconColor =
-              med.status === "taken"
-                ? "#16A34A"
-                : med.status === "missed"
-                ? "#DC2626"
-                : COLORS.primaryBlue;
-
-            const nextDoseColor =
-              med.status === "taken"
-                ? "#15803D"
-                : med.status === "missed"
-                ? "#B91C1C"
-                : "#1D4ED8";
-
-            return (
-              <View
-                key={med.id}
-                style={[
-                  styles.medCard,
-                  { backgroundColor: bgColor, borderColor },
-                ]}
-              >
-                <View style={styles.medTopRow}>
-                  <View
-                    style={[
-                      styles.medIconCircle,
-                      { backgroundColor: iconBg },
-                    ]}
-                  >
-                    {med.status === "taken" ? (
-                      <CheckCircle size={24} color={iconColor} />
-                    ) : (
-                      <Pill size={24} color={iconColor} />
-                    )}
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.medName}>{med.name}</Text>
-                    <Text style={styles.medDosage}>
-                      {med.dosage} • {med.frequency}
-                    </Text>
-                    <View style={styles.medTimesRow}>
-                      <Clock size={16} color="#9CA3AF" />
-                      <Text style={styles.medTimesText}>
-                        {med.times.join(", ")}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.medNote,
-                        { backgroundColor: noteBg },
-                      ]}
-                    >
-                      <Info size={16} color={noteIconColor} />
-                      <Text style={styles.medNoteText}>{med.notes}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.medFooter,
-                    { borderTopColor: borderColor },
-                  ]}
-                >
-                  <View>
-                    <Text style={styles.footerLabel}>Next dose</Text>
-                    <Text
-                      style={[
-                        styles.footerNextDose,
-                        { color: nextDoseColor },
-                      ]}
-                    >
-                      {med.nextDose}
-                    </Text>
-                  </View>
-
-                  {med.status === "upcoming" && (
-                    <TouchableOpacity style={styles.actionPrimary}>
-                      <Text style={styles.actionPrimaryText}>Mark Taken</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {med.status === "missed" && (
-                    <TouchableOpacity style={styles.actionDanger}>
-                      <Text style={styles.actionDangerText}>Take Now</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            );
-          })}
+          {renderContent()}
         </View>
       </ScrollView>
 
@@ -328,81 +232,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  medCard: {
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 2,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  medTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  medIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  medName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  medDosage: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    marginBottom: 6,
-  },
-  medTimesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  medTimesText: {
-    marginLeft: 4,
-    fontSize: 13,
-    color: "#6B7280",
-  },
-  medNote: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginTop: 2,
-    gap: 6,
-  },
-  medNoteText: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-  },
-  medFooter: {
-    borderTopWidth: 1,
-    marginTop: 8,
-    paddingTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  footerLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  footerNextDose: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
   actionPrimary: {
     borderRadius: 10,
     backgroundColor: COLORS.primaryBlue,
@@ -410,17 +239,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   actionPrimaryText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  actionDanger: {
-    borderRadius: 10,
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  actionDangerText: {
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
@@ -440,5 +258,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
+  },
+  centered: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

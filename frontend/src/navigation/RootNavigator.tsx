@@ -7,12 +7,18 @@ import { LoginScreen } from "../screens/Auth/LoginScreen";
 import { AppTabs } from "./AppTabs";
 import { MedicationFormScreen } from "../screens/Medication/AddMedicationScreen";
 import { NurseChatScreen } from "../screens/Nurse/NurseChatScreen";
+import { RegisterScreen } from "../screens/Auth/RegisterScreen";
+import { AddReportScreen } from "../screens/Reports/AddReportsScreen";
+import { AddAppointmentScreen } from "../screens/Reports/AddAppointmentScreen";
 
 export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
-  AppTabs: undefined; // bottom‑tab navigator (Home, Meds, Reports, Nurse, Profile)
+  Register: undefined;
+  AppTabs: undefined; 
   AddMedication: undefined;
+  AddAppointment: undefined;
+  AddReport: undefined;
   NurseChat: { userName?: string } | undefined;
 };
 
@@ -26,6 +32,7 @@ export const RootNavigator: React.FC = () => {
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
 
       {/* Main app after auth (includes ProfileTab inside AppTabs) */}
       <Stack.Screen name="AppTabs" component={AppTabs} />
@@ -35,6 +42,9 @@ export const RootNavigator: React.FC = () => {
 
       {/* Optional full-screen nurse chat */}
       <Stack.Screen name="NurseChat" component={NurseChatScreen} />
+      <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} />
+      <Stack.Screen name="AddReport" component={AddReportScreen} />
+
     </Stack.Navigator>
   );
 };

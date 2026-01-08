@@ -1,3 +1,5 @@
+// src/screens/Medication/AddMedicationScreen.tsx
+
 import React, { useState } from "react";
 import {
   View,
@@ -6,23 +8,80 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 import { COLORS } from "../../../constants/colors";
+import { api } from "../../../services/api";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddMedication">;
+
+const FREQUENCY_OPTIONS = [
+  "Once daily",
+  "Twice daily",
+  "Every 8 hours",
+  "Every 6 hours",
+  "Every 12 hours",
+];
 
 export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
   const [medName, setMedName] = useState("");
   const [dosage, setDosage] = useState("");
-  const [frequency, setFrequency] = useState("");
-  const [times, setTimes] = useState("");
-  const [notes, setNotes] = useState("");
+  const [frequency, setFrequency] = useState<string>("Once daily");
+  const [showFrequencyOptions, setShowFrequencyOptions] = useState(false);
 
-  const handleSave = () => {
-    // TODO: save to state/backend later
-    navigation.goBack();
+  const [time, setTime] = useState<Date | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChangeTime = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS !== "ios") {
+      setShowTimePicker(false);
+    }
+    if (selected) {
+      setTime(selected);
+    }
+  };
+
+  const formattedTime = time
+    ? time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  const handleSave = async () => {
+    if (!medName.trim()) {
+      setError("Medication name is required");
+      return;
+    }
+
+    try {
+      setError(null);
+      setSaving(true);
+
+      // For now, backend still ignores time; we just store frequency and notes.
+      await api.createMedication({
+        name: medName.trim(),
+        dosage: dosage || undefined,
+        frequency: frequency || undefined,
+        route: undefined,
+        start_date: null,
+        end_date: null,
+        instructions: notes || undefined,
+      });
+
+      navigation.goBack(); // list refetches on focus
+    } catch (e: any) {
+      setError(e.message || "Failed to save medication");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -39,6 +98,13 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
 
+        {/* Error */}
+        {error && (
+          <View style={{ marginBottom: 8 }}>
+            <Text style={{ color: "red", fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
+
         {/* Form */}
         <View style={styles.form}>
           <FormField
@@ -47,24 +113,73 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
             value={medName}
             onChangeText={setMedName}
           />
+
           <FormField
             label="Dosage"
             placeholder="e.g., 500mg"
             value={dosage}
             onChangeText={setDosage}
           />
-          <FormField
-            label="Frequency"
-            placeholder="e.g., 2x daily"
-            value={frequency}
-            onChangeText={setFrequency}
-          />
-          <FormField
-            label="Reminder times"
-            placeholder="e.g., 8:00 AM, 8:00 PM"
-            value={times}
-            onChangeText={setTimes}
-          />
+
+          {/* Frequency as dropdown */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Frequency</Text>
+            <TouchableOpacity
+              style={styles.selectInput}
+              onPress={() => setShowFrequencyOptions((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.selectInputText}>
+                {frequency || "Select frequency"}
+              </Text>
+            </TouchableOpacity>
+
+            {showFrequencyOptions && (
+              <View style={styles.dropdown}>
+                {FREQUENCY_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setFrequency(opt);
+                      setShowFrequencyOptions(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Reminder time with time picker */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Reminder time</Text>
+            <TouchableOpacity
+              style={styles.selectInput}
+              onPress={() => setShowTimePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.selectInputText,
+                  !formattedTime && { color: "#9CA3AF" },
+                ]}
+              >
+                {formattedTime || "Select time"}
+              </Text>
+            </TouchableOpacity>
+
+            {showTimePicker && (
+              <DateTimePicker
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                value={time || new Date()}
+                onChange={handleChangeTime}
+              />
+            )}
+          </View>
+
           <FormField
             label="Notes"
             placeholder="Take with food, watch for side effects..."
@@ -79,11 +194,20 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => navigation.goBack()}
+            disabled={saving}
           >
             <Text style={styles.secondaryText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-            <Text style={styles.primaryText}>Add reminder</Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryText}>Add reminder</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -175,6 +299,35 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
   },
+  selectInput: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  selectInputText: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  dropdown: {
+    marginTop: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
   actions: {
     flexDirection: "row",
     marginTop: 20,
@@ -207,3 +360,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 });
+
+export default MedicationFormScreen;

@@ -1,4 +1,4 @@
-// src/screens/Auth/LoginScreen.tsx
+// src/screens/Auth/RegisterScreen.tsx
 
 import React, { useState, useEffect } from "react";
 import {
@@ -17,20 +17,21 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { Mail, Lock, ArrowLeft } from "lucide-react-native";
-import { api, setToken } from "../../../services/api";
+import { User, Mail, Lock, ArrowLeft, AlertCircle } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 import { COLORS } from "../../../constants/colors";
+import { api, setToken } from "../../../services/api";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Login">;
+type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
-export const LoginScreen: React.FC<Props> = ({ navigation }) => {
+export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const [loading, setLoading] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0);
@@ -40,7 +41,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     opacity.value = withTiming(1, { duration: 400 });
   }, [scale, opacity]);
 
-  const headerStyle = useAnimatedStyle(() => ({
+  const containerAnim = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
@@ -49,51 +50,49 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     navigation.goBack();
   };
 
-  const handleLogin = async () => {
+  const handleNavigateToLogin = () => {
+    navigation.navigate("Login");
+  };
+
+  const handleRegister = async () => {
+    setError(null);
+
+    if (!fullName.trim()) {
+      setError("Please enter your full name");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     try {
       setLoading(true);
-      setError(null);
-      const res = await api.login(email, password);
+      // backend: you might add "name" field to /auth/register later
+      const res = await api.register(email, password, fullName);
       setToken(res.token);
+      // later: navigate to ProfileSetup screen instead of AppTabs
       navigation.replace("AppTabs");
     } catch (e: any) {
-      setError(e.message || "Login failed");
+      setError(e.message || "Registration failed");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = () => {
-    Alert.alert(
-      "Forgot password",
-      "Password reset flow will be added in a future version."
-    );
-  };
-
-  const handleLoginWithGoogle = () => {
-    Alert.alert(
-      "Google sign-in",
-      "Google authentication will be integrated here later."
-    );
-  };
-
-  const handleLoginWithFacebook = () => {
-    Alert.alert(
-      "Facebook sign-in",
-      "Facebook authentication will be integrated here later."
-    );
-  };
-
-  const handleCreateAccount = () => {
-    // placeholder: you'll add Register screen later
-    navigation.navigate("Register" as never); 
   };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Top row: back + logo inline so back button isn't floating out of place */}
+      {/* Header row: back + small logo, aligned like Login */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={20} color={COLORS.textPrimary} />
@@ -104,7 +103,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={[styles.content, headerStyle]}>
+        <Animated.View style={[styles.content, containerAnim]}>
           {/* Logo + title */}
           <View style={styles.logoSection}>
             <View style={styles.logoWrapper}>
@@ -114,21 +113,35 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>
-              Sign in to continue your care journey
-            </Text>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Join VIORA for better healthcare</Text>
           </View>
 
-          {/* Optional error message */}
+          {/* Error */}
           {error && (
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
+            <View style={styles.errorBox}>
+              <AlertCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
           )}
 
           {/* Form */}
           <View style={styles.form}>
+            {/* Full Name */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Full Name</Text>
+              <View style={styles.inputWrapper}>
+                <User size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <TextInput
+                  value={fullName}
+                  onChangeText={setFullName}
+                  placeholder="John Doe"
+                  style={styles.input}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
             {/* Email */}
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
@@ -154,7 +167,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Enter your password"
+                  placeholder="Create a strong password"
                   secureTextEntry
                   style={styles.input}
                   placeholderTextColor="#9CA3AF"
@@ -162,63 +175,43 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Forgot password */}
-            <View style={styles.forgotRow}>
-              <TouchableOpacity onPress={handleForgotPassword}>
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
+            {/* Confirm Password */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <View style={styles.inputWrapper}>
+                <Lock size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Re-enter your password"
+                  secureTextEntry
+                  style={styles.input}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
             </View>
 
-            {/* Sign in */}
+            {/* Create Account button */}
             <TouchableOpacity
-              style={styles.signInButton}
-              onPress={handleLogin}
+              onPress={handleRegister}
+              style={styles.primaryButton}
               activeOpacity={0.9}
               disabled={loading}
             >
-              <Text style={styles.signInText}>
-                {loading ? "Signing in..." : "Sign In"}
+              <Text style={styles.primaryButtonText}>
+                {loading ? "Creating account..." : "Create Account"}
               </Text>
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>or continue with</Text>
-              <View style={styles.divider} />
-            </View>
-
-            {/* Social buttons */}
-            <View style={styles.socialGroup}>
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleLoginWithGoogle}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.socialIcon}>G</Text>
-                <Text style={styles.socialText}>Continue with Google</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleLoginWithFacebook}
-                activeOpacity={0.9}
-              >
-                <Text style={[styles.socialIcon, { color: "#1877F2" }]}>f</Text>
-                <Text style={styles.socialText}>Continue with Facebook</Text>
+            {/* Sign in link */}
+            <View style={styles.loginRow}>
+              <Text style={styles.loginLabel}>Already have an account? </Text>
+              <TouchableOpacity onPress={handleNavigateToLogin}>
+                <Text style={styles.loginLink}>Sign in</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Create account */}
-            <View style={styles.createRow}>
-              <Text style={styles.createLabel}>Don't have an account? </Text>
-              <TouchableOpacity onPress={handleCreateAccount}>
-                <Text style={styles.createLink}>Create account</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Space reserved for future: direct link to profile form after register */}
-            {/* e.g., "Complete your profile" banner will go here later */}
+            {/* reserved space for future: link to profile form screen */}
           </View>
         </Animated.View>
       </ScrollView>
@@ -314,15 +307,26 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: "center",
   },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    padding: 10,
+    marginBottom: 10,
+    maxWidth: 380,
+  },
   errorText: {
-    color: "red",
-    marginBottom: 8,
-    textAlign: "center",
+    flex: 1,
+    fontSize: 13,
+    color: "#B91C1C",
   },
   form: {
     width: "100%",
     maxWidth: 380,
-    marginTop: 16,
+    marginTop: 8,
   },
   field: {
     marginBottom: 14,
@@ -351,17 +355,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.textPrimary,
   },
-  forgotRow: {
-    alignItems: "flex-end",
-    marginBottom: 14,
-  },
-  forgotText: {
-    fontSize: 13,
-    color: COLORS.primaryBlue,
-    fontWeight: "500",
-  },
-  signInButton: {
-    backgroundColor: COLORS.primaryBlue,
+  primaryButton: {
+    backgroundColor: COLORS.primaryGreen,
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: "center",
@@ -371,60 +366,23 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
+    marginTop: 4,
   },
-  signInText: {
+  primaryButtonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
   },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 18,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  dividerText: {
-    marginHorizontal: 8,
-    fontSize: 12,
-    color: "#9CA3AF",
-  },
-  socialGroup: {
-    gap: 10,
-  },
-  socialButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  socialIcon: {
-    fontSize: 18,
-    color: "#4285F4",
-    marginRight: 10,
-  },
-  socialText: {
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    fontWeight: "500",
-  },
-  createRow: {
+  loginRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 16,
   },
-  createLabel: {
+  loginLabel: {
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  createLink: {
+  loginLink: {
     fontSize: 14,
     color: COLORS.primaryBlue,
     fontWeight: "600",
