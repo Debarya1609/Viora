@@ -9,21 +9,21 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { Plus } from "lucide-react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../../constants/colors";
-import { api, Medication } from "../../../services/api";
+import { api, Medication, MedicationEvent } from "../../../services/api";
 import { MedicationCard } from "../../../components/cards/MedicationCard";
 
 type MedicationsScreenProps = {
   navigation: any;
 };
 
-export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
-  navigation,
-}) => {
+const MedicationsScreen: React.FC<MedicationsScreenProps> = ({ navigation }) => {
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [todayEvents, setTodayEvents] = useState<MedicationEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +32,15 @@ export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
     navigation.navigate("AddMedication");
   };
 
-  const loadMedications = async () => {
+  const loadData = async () => {
     try {
       setError(null);
-      const data = await api.getMedications();
-      setMedications(data);
+      const [meds, events] = await Promise.all([
+        api.getMedications(),
+        api.getTodayMedicationEvents(),
+      ]);
+      setMedications(meds);
+      setTodayEvents(events);
     } catch (e: any) {
       setError(e.message || "Failed to load medications");
     } finally {
@@ -48,13 +52,46 @@ export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      loadMedications();
+      loadData();
     }, [])
   );
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadMedications();
+    loadData();
+  };
+
+  // ---- progress metrics from events ----
+  const totalDosesToday = todayEvents.length;
+  const takenDosesToday = todayEvents.filter(
+    (e) => e.status === "taken"
+  ).length;
+  const adherencePct =
+    totalDosesToday === 0
+      ? 0
+      : Math.round((takenDosesToday / totalDosesToday) * 100);
+
+  // delete handler
+  const handleDeleteMedication = (med: Medication) => {
+    Alert.alert(
+      "Delete medication",
+      `Are you sure you want to delete ${med.name}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.deleteMedication(med.id);
+              await loadData();
+            } catch (e) {
+              console.error("delete medication error", e);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderContent = () => {
@@ -70,7 +107,7 @@ export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
       return (
         <View style={styles.centered}>
           <Text style={{ color: "red", marginBottom: 8 }}>{error}</Text>
-          <TouchableOpacity style={styles.actionPrimary} onPress={loadMedications}>
+          <TouchableOpacity style={styles.actionPrimary} onPress={loadData}>
             <Text style={styles.actionPrimaryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -87,7 +124,9 @@ export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
             style={styles.actionPrimary}
             onPress={handleAddMedication}
           >
-            <Text style={styles.actionPrimaryText}>Add your first medication</Text>
+            <Text style={styles.actionPrimaryText}>
+              Add your first medication
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -97,9 +136,11 @@ export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
       <MedicationCard
         key={med.id}
         medication={med}
+        // open form in edit mode
         onPress={() => {
-          // later: navigate to medication detail/edit
+          navigation.navigate("AddMedication", { medication: med });
         }}
+        onDelete={() => handleDeleteMedication(med)}
       />
     ));
   };
@@ -120,20 +161,38 @@ export const MedicationsScreen: React.FC<MedicationsScreenProps> = ({
         </View>
 
         <View style={styles.body}>
-          {/* Summary card (static for now) */}
+          {/* Summary card with real progress */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryTopRow}>
               <View>
                 <Text style={styles.summaryLabel}>Today&apos;s Progress</Text>
-                <Text style={styles.summaryValue}>—</Text>
+                <Text style={styles.summaryValue}>
+                  {totalDosesToday === 0 ? "—" : `${adherencePct}%`}
+                </Text>
+                {totalDosesToday > 0 && (
+                  <Text style={styles.summarySubValue}>
+                    {takenDosesToday}/{totalDosesToday} doses taken
+                  </Text>
+                )}
               </View>
+
+              {/* simple circular indicator */}
               <View style={styles.circleWrapper}>
-                <View style={styles.circleBg} />
+                <View style={styles.circleBg}>
+                  <View
+                    style={[
+                      styles.circleFill,
+                      { height: `${adherencePct}%` },
+                    ]}
+                  />
+                </View>
               </View>
             </View>
+
             <Text style={styles.summaryText}>
-              Your medication adherence will appear here once you start logging
-              doses.
+              {totalDosesToday === 0
+                ? "Your medication adherence will appear here once you have scheduled doses for today."
+                : "Keep taking your medications on time to stay on track with your treatment."}
             </Text>
           </View>
 
@@ -217,16 +276,29 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
   },
+  summarySubValue: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
   circleWrapper: {
     width: 64,
     height: 64,
+    justifyContent: "center",
+    alignItems: "center",
   },
   circleBg: {
-    flex: 1,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 4,
-    borderColor: "#3B82F6",
-    opacity: 0.7,
+    borderColor: "#DBEAFE",
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  circleFill: {
+    width: "100%",
+    backgroundColor: "#3B82F6",
   },
   summaryText: {
     fontSize: 14,
@@ -265,3 +337,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
+
+export default MedicationsScreen;

@@ -11,6 +11,8 @@ import { NurseChatScreen } from "../screens/Nurse/NurseChatScreen";
 import { AddReportScreen } from "../screens/Reports/AddReportsScreen";
 import { AddAppointmentScreen } from "../screens/Reports/AddAppointmentScreen";
 import { ProfileOnboardingScreen } from "../screens/Profile/ProfileOnboardingScreen";
+import MedicationsScreen from "../screens/Medication/MedicationListScreen";
+import { Medication } from "../../services/api";
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -22,9 +24,20 @@ export type RootStackParamList = {
         initialName?: string;
       }
     | undefined;
-  AddMedication: undefined;
+
+  // Medication flow
+  // AddMedication can receive an optional medication when editing
+  AddMedication:
+    | {
+        medication?: Medication;
+      }
+    | undefined;
+
+  Medications: undefined;
+
   AddAppointment: undefined;
   AddReport: undefined;
+
   NurseChat: { userName?: string } | undefined;
 };
 
@@ -51,6 +64,7 @@ export const RootNavigator: React.FC = () => {
 
       {/* Medication flow */}
       <Stack.Screen name="AddMedication" component={MedicationFormScreen} />
+      <Stack.Screen name="Medications" component={MedicationsScreen} />
 
       {/* Nurse chat & records */}
       <Stack.Screen name="NurseChat" component={NurseChatScreen} />

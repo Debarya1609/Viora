@@ -107,7 +107,8 @@ def create_medication():
         "route": "oral",
         "start_date": "YYYY-MM-DD",
         "end_date": "YYYY-MM-DD or null",
-        "instructions": "Take after food"
+        "instructions": "Take after food",
+        "is_active": true           # optional, defaults to true
       }
 
     - patient: creates medication for themselves (no prescribed_by).
@@ -142,6 +143,9 @@ def create_medication():
         except Exception:
             return jsonify({"error": "Invalid end_date"}), 400
 
+    # default to True if not provided
+    is_active = bool(data.get("is_active", True))
+
     if user.role == "patient":
         # Look up patient by primary key (same as user.id)
         patient = Patient.query.get(user.id)
@@ -162,7 +166,7 @@ def create_medication():
             start_date=start_date,
             end_date=end_date,
             instructions=instructions,
-            is_active=True,
+            is_active=is_active,
         )
 
     elif user.role == "doctor":
@@ -184,7 +188,7 @@ def create_medication():
             start_date=start_date,
             end_date=end_date,
             instructions=instructions,
-            is_active=True,
+            is_active=is_active,
         )
     else:
         return jsonify({"error": "Invalid role"}), 400
@@ -245,7 +249,9 @@ def update_medication(medication_id):
     if "start_date" in data:
         if data["start_date"]:
             try:
-                med.start_date = datetime.fromisoformat(data["start_date"]).date()
+                med.start_date = datetime.fromisoformat(
+                    data["start_date"]
+                ).date()
             except Exception:
                 return jsonify({"error": "Invalid start_date"}), 400
         else:
@@ -254,7 +260,9 @@ def update_medication(medication_id):
     if "end_date" in data:
         if data["end_date"]:
             try:
-                med.end_date = datetime.fromisoformat(data["end_date"]).date()
+                med.end_date = datetime.fromisoformat(
+                    data["end_date"]
+                ).date()
             except Exception:
                 return jsonify({"error": "Invalid end_date"}), 400
         else:

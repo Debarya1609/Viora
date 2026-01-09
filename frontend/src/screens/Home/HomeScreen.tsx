@@ -1,12 +1,13 @@
 // src/screens/Home/HomeScreen.tsx
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import {
   Pill,
@@ -16,16 +17,34 @@ import {
   Clock,
 } from "lucide-react-native";
 import { COLORS } from "../../../constants/colors";
+import {
+  api,
+  Appointment,
+  PatientProfile,
+  MedicationEvent,
+} from "../../../services/api";
 
-const todaysTasks = [
-  { id: 1, type: "medication", name: "Metformin 500mg", time: "8:00 AM", status: "taken" },
-  { id: 2, type: "medication", name: "Lisinopril 10mg", time: "8:00 AM", status: "taken" },
-  { id: 3, type: "medication", name: "Aspirin 81mg", time: "2:00 PM", status: "upcoming" },
-  { id: 4, type: "checkIn", name: "Blood pressure check", time: "3:00 PM", status: "pending" },
-  { id: 5, type: "medication", name: "Atorvastatin 20mg", time: "9:00 PM", status: "upcoming" },
-];
+type TaskStatus = "taken" | "upcoming" | "pending";
+
+type TaskItem = {
+  id: string;
+  type: "medication" | "checkIn";
+  name: string;
+  time: string;
+  status: TaskStatus;
+  eventId?: string;
+};
 
 export const HomeScreen: React.FC<any> = ({ navigation }) => {
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [todayEvents, setTodayEvents] = useState<MedicationEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [confirmEventId, setConfirmEventId] = useState<string | null>(null);
+  const [confirmMedName, setConfirmMedName] = useState<string | null>(null);
+  const [marking, setMarking] = useState(false);
+
   const currentHour = new Date().getHours();
   const greeting =
     currentHour < 12
@@ -34,15 +53,165 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       ? "Good afternoon"
       : "Good evening";
 
-  const userName = "Patient"; // TODO: replace with real user name from auth later
+  const userName = profile?.full_name || "Patient";
+
+  const loadHome = async () => {
+    try {
+      const [p, appts, events] = await Promise.all([
+        api.getProfile(),
+        api.getAppointments(),
+        api.getTodayMedicationEvents(),
+      ]);
+      setProfile(p);
+      setAppointments(appts);
+      setTodayEvents(events);
+    } catch (e) {
+      console.error("Home load error", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHome();
+  }, []);
+
+  // Next medication from events
+  const nextMedication = useMemo(() => {
+    const now = new Date();
+    const upcoming = todayEvents
+      .filter((e) => e.status === "scheduled")
+      .map((e) => ({
+        ...e,
+        dt: new Date(e.scheduled_time),
+      }))
+      .filter((e) => e.dt >= now)
+      .sort((a, b) => a.dt.getTime() - b.dt.getTime());
+
+    if (!upcoming.length) return null;
+    const first = upcoming[0];
+    const timeStr = new Date(first.scheduled_time).toLocaleTimeString(
+      undefined,
+      { hour: "numeric", minute: "2-digit" }
+    );
+    return {
+      eventId: first.id,
+      name: first.name || "Medication",
+      time: timeStr,
+    };
+  }, [todayEvents]);
+
+  // Next appointment
+  const nextAppointment = useMemo(() => {
+    const now = new Date();
+    const upcoming = appointments
+      .map((a) => ({ ...a, startDate: new Date(a.start_time) }))
+      .filter((a) => a.startDate >= now)
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+    if (!upcoming.length) return null;
+    const first = upcoming[0];
+    const date = first.startDate.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const time = first.startDate.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    return {
+      doctorText: "Your upcoming appointment",
+      date,
+      time,
+      location: "Hospital",
+    };
+  }, [appointments]);
+
+  // Today tasks from events
+  const todaysTasks: TaskItem[] = useMemo(() => {
+    const tasks: TaskItem[] = [];
+
+    todayEvents.forEach((e) => {
+      const dt = new Date(e.scheduled_time);
+      const timeStr = dt.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+
+      const status: TaskStatus =
+        e.status === "taken"
+          ? "taken"
+          : dt > new Date()
+          ? "upcoming"
+          : "pending";
+
+      tasks.push({
+        id: e.id,
+        eventId: e.id,
+        type: "medication",
+        name: e.name || "Medication",
+        time: timeStr,
+        status,
+      });
+    });
+
+    // simple daily check-in
+    tasks.push({
+      id: "checkin-bp",
+      type: "checkIn",
+      name: "Daily health check-in",
+      time: "7:00 PM",
+      status: "pending",
+    });
+
+    return tasks;
+  }, [todayEvents]);
 
   const handleOpenNurseChat = () => {
-    // later: navigation.navigate("NurseChat");
+    navigation.navigate("NurseChat");
   };
 
   const handleOpenMedications = () => {
-    // later: navigation.navigate("Medications");
+    navigation.navigate("Medications");
   };
+
+  const handleMarkNextMedication = () => {
+    if (!nextMedication) return;
+    setConfirmEventId(nextMedication.eventId);
+    setConfirmMedName(nextMedication.name);
+  };
+
+  const handleConfirmYes = async () => {
+    if (!confirmEventId) return;
+    try {
+      setMarking(true);
+      await api.markMedicationEventTaken(confirmEventId);
+      setConfirmEventId(null);
+      setConfirmMedName(null);
+      await loadHome(); // refresh events & next med
+    } catch (e) {
+      console.error("mark taken error", e);
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  const handleConfirmNo = () => {
+    setConfirmEventId(null);
+    setConfirmMedName(null);
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={[styles.root, { justifyContent: "center", alignItems: "center" }]}
+      >
+        <ActivityIndicator size="large" color={COLORS.primaryBlue} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -69,20 +238,30 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Next Medication</Text>
-                <Text style={styles.cardText}>Aspirin 81mg</Text>
-                <View style={styles.timeRow}>
-                  <Clock size={16} color="#9CA3AF" />
-                  <Text style={styles.timeText}>2:00 PM</Text>
-                </View>
+                <Text style={styles.cardText}>
+                  {nextMedication?.name || "No medications scheduled"}
+                </Text>
+                {nextMedication && (
+                  <View style={styles.timeRow}>
+                    <Clock size={16} color="#9CA3AF" />
+                    <Text style={styles.timeText}>{nextMedication.time}</Text>
+                  </View>
+                )}
               </View>
             </View>
 
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={handleOpenMedications}
+                onPress={
+                  nextMedication
+                    ? handleMarkNextMedication
+                    : handleOpenMedications
+                }
               >
-                <Text style={styles.primaryButtonText}>Mark as Taken</Text>
+                <Text style={styles.primaryButtonText}>
+                  {nextMedication ? "Mark as taken" : "View medications"}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryButton}>
                 <Text style={styles.secondaryButtonText}>Skip</Text>
@@ -100,42 +279,27 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Next Appointment</Text>
-                <Text style={styles.cardText}>
-                  Dr. Emily Smith - Cardiology
-                </Text>
-                <View style={styles.appointmentRow}>
-                  <Text style={styles.metaText}>Jan 10, 2026</Text>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={styles.metaText}>10:30 AM</Text>
-                </View>
-                <Text style={styles.metaText}>
-                  Memorial Hospital, Building A
-                </Text>
+                {nextAppointment ? (
+                  <>
+                    <Text style={styles.cardText}>
+                      {nextAppointment.doctorText}
+                    </Text>
+                    <View style={styles.appointmentRow}>
+                      <Text style={styles.metaText}>{nextAppointment.date}</Text>
+                      <Text style={styles.metaDot}>•</Text>
+                      <Text style={styles.metaText}>{nextAppointment.time}</Text>
+                    </View>
+                    <Text style={styles.metaText}>
+                      {nextAppointment.location}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.cardText}>
+                    You have no upcoming appointments.
+                  </Text>
+                )}
               </View>
             </View>
-          </View>
-        </View>
-
-        {/* VIORA nurse */}
-        <View style={styles.section}>
-          <View style={styles.nurseCard}>
-            <View style={styles.cardRow}>
-              <View style={styles.nurseAvatar}>
-                <MessageCircle size={28} color="#FFFFFF" />
-              </View>
-              <View>
-                <Text style={styles.nurseTitle}>VIORA Nurse</Text>
-                <Text style={styles.nurseSubtitle}>
-                  Always here to help you
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.nurseButton}
-              onPress={handleOpenNurseChat}
-            >
-              <Text style={styles.nurseButtonText}>Start a conversation</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -143,55 +307,61 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today&apos;s Tasks</Text>
           <View style={styles.tasksCard}>
-            {todaysTasks.map((task) => {
-              const bgColor =
-                task.status === "taken"
-                  ? "#DCFCE7"
-                  : task.status === "upcoming"
-                  ? "#DBEAFE"
-                  : "#F3F4F6";
-              const iconColor =
-                task.status === "taken"
-                  ? "#16A34A"
-                  : task.type === "medication"
-                  ? COLORS.primaryBlue
-                  : "#4B5563";
+            {todaysTasks.length === 0 ? (
+              <View style={styles.taskRow}>
+                <Text style={styles.taskName}>No tasks for today</Text>
+              </View>
+            ) : (
+              todaysTasks.map((task) => {
+                const bgColor =
+                  task.status === "taken"
+                    ? "#DCFCE7"
+                    : task.status === "upcoming"
+                    ? "#DBEAFE"
+                    : "#F3F4F6";
+                const iconColor =
+                  task.status === "taken"
+                    ? "#16A34A"
+                    : task.type === "medication"
+                    ? COLORS.primaryBlue
+                    : "#4B5563";
 
-              return (
-                <View key={task.id} style={styles.taskRow}>
-                  <View
-                    style={[
-                      styles.taskIconCircle,
-                      { backgroundColor: bgColor },
-                    ]}
-                  >
-                    {task.status === "taken" ? (
-                      <CheckCircle size={20} color={iconColor} />
-                    ) : task.type === "medication" ? (
-                      <Pill size={20} color={iconColor} />
-                    ) : (
-                      <Clock size={20} color={iconColor} />
-                    )}
-                  </View>
-
-                  <View style={styles.taskTextWrapper}>
-                    <Text
+                return (
+                  <View key={task.id} style={styles.taskRow}>
+                    <View
                       style={[
-                        styles.taskName,
-                        task.status === "taken" && styles.taskNameDone,
+                        styles.taskIconCircle,
+                        { backgroundColor: bgColor },
                       ]}
                     >
-                      {task.name}
-                    </Text>
-                    <Text style={styles.taskTime}>{task.time}</Text>
-                  </View>
+                      {task.status === "taken" ? (
+                        <CheckCircle size={20} color={iconColor} />
+                      ) : task.type === "medication" ? (
+                        <Pill size={20} color={iconColor} />
+                      ) : (
+                        <Clock size={20} color={iconColor} />
+                      )}
+                    </View>
 
-                  {task.status === "taken" && (
-                    <Text style={styles.taskDoneLabel}>Done</Text>
-                  )}
-                </View>
-              );
-            })}
+                    <View style={styles.taskTextWrapper}>
+                      <Text
+                        style={[
+                          styles.taskName,
+                          task.status === "taken" && styles.taskNameDone,
+                        ]}
+                      >
+                        {task.name}
+                      </Text>
+                      <Text style={styles.taskTime}>{task.time}</Text>
+                    </View>
+
+                    {task.status === "taken" && (
+                      <Text style={styles.taskDoneLabel}>Done</Text>
+                    )}
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
 
@@ -200,7 +370,10 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Medications Today</Text>
-              <Text style={styles.statValue}>3/5</Text>
+              <Text style={styles.statValue}>
+                {todayEvents.filter((e) => e.status === "taken").length}/
+                {todayEvents.length || 1}
+              </Text>
               <Text style={[styles.statMeta, { color: "#16A34A" }]}>
                 On track
               </Text>
@@ -216,6 +389,41 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* confirmation modal */}
+      {confirmEventId && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>
+              Have you taken {confirmMedName || "this medication"}?
+            </Text>
+            <View style={styles.confirmButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  { backgroundColor: COLORS.primaryBlue },
+                ]}
+                onPress={handleConfirmYes}
+                disabled={marking}
+              >
+                <Text style={styles.confirmButtonTextPrimary}>
+                  {marking ? "Saving..." : "Yes"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  { backgroundColor: "#E5E7EB" },
+                ]}
+                onPress={handleConfirmNo}
+                disabled={marking}
+              >
+                <Text style={styles.confirmButtonTextSecondary}>No</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -491,5 +699,45 @@ const styles = StyleSheet.create({
   statMeta: {
     fontSize: 13,
     marginTop: 4,
+  },
+  confirmOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  confirmCard: {
+    width: "80%",
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+  },
+  confirmTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    marginBottom: 12,
+  },
+  confirmButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    columnGap: 8,
+  },
+  confirmButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  confirmButtonTextPrimary: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  confirmButtonTextSecondary: {
+    color: COLORS.textPrimary,
+    fontWeight: "600",
   },
 });

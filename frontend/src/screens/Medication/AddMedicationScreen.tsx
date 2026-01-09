@@ -1,6 +1,6 @@
 // src/screens/Medication/AddMedicationScreen.tsx
 
-import React, { useState } from "react";
+import React, { useState, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import DateTimePicker, {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 import { COLORS } from "../../../constants/colors";
-import { api } from "../../../services/api";
+import { api, Medication } from "../../../services/api";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddMedication">;
 
@@ -29,18 +29,29 @@ const FREQUENCY_OPTIONS = [
   "Every 12 hours",
 ];
 
-export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
-  const [medName, setMedName] = useState("");
-  const [dosage, setDosage] = useState("");
-  const [frequency, setFrequency] = useState<string>("Once daily");
+export const MedicationFormScreen: React.FC<Props> = ({ navigation, route }) => {
+  const editingMedication: Medication | undefined = route.params?.medication;
+
+  const [medName, setMedName] = useState(editingMedication?.name ?? "");
+  const [dosage, setDosage] = useState(editingMedication?.dosage ?? "");
+  const [frequency, setFrequency] = useState<string>(
+    editingMedication?.frequency || "Once daily"
+  );
   const [showFrequencyOptions, setShowFrequencyOptions] = useState(false);
 
   const [time, setTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(editingMedication?.instructions ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Set header title based on mode
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: editingMedication ? "Edit medication" : "Add medication",
+    });
+  }, [navigation, editingMedication]);
 
   const handleChangeTime = (event: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS !== "ios") {
@@ -65,8 +76,7 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
       setError(null);
       setSaving(true);
 
-      // For now, backend still ignores time; we just store frequency and notes.
-      await api.createMedication({
+      const payload = {
         name: medName.trim(),
         dosage: dosage || undefined,
         frequency: frequency || undefined,
@@ -74,7 +84,15 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
         start_date: null,
         end_date: null,
         instructions: notes || undefined,
-      });
+      };
+
+      if (editingMedication) {
+        // UPDATE existing medication
+        await api.updateMedication(editingMedication.id, payload);
+      } else {
+        // CREATE new medication
+        await api.createMedication(payload);
+      }
 
       navigation.goBack(); // list refetches on focus
     } catch (e: any) {
@@ -92,9 +110,11 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add medication</Text>
+          <Text style={styles.headerTitle}>
+            {editingMedication ? "Edit medication" : "Add medication"}
+          </Text>
           <Text style={styles.headerSubtitle}>
-            Set up a new reminder for your medication
+            Set up a {editingMedication ? "reminder for this medication" : "new reminder for your medication"}
           </Text>
         </View>
 
@@ -152,7 +172,7 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </View>
 
-          {/* Reminder time with time picker */}
+          {/* Reminder time with time picker (still local-only for now) */}
           <View style={styles.field}>
             <Text style={styles.label}>Reminder time</Text>
             <TouchableOpacity
@@ -206,7 +226,9 @@ export const MedicationFormScreen: React.FC<Props> = ({ navigation }) => {
             {saving ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.primaryText}>Add reminder</Text>
+              <Text style={styles.primaryText}>
+                {editingMedication ? "Save changes" : "Add reminder"}
+              </Text>
             )}
           </TouchableOpacity>
         </View>

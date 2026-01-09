@@ -15,6 +15,7 @@ def utcnow() -> datetime:
 
 # ---------- Core identity ----------
 
+
 class User(db.Model):
     __tablename__ = "users"
 
@@ -94,6 +95,7 @@ class DoctorPatientLink(db.Model):
 
 # ---------- Appointments ----------
 
+
 class Appointment(db.Model):
     __tablename__ = "appointments"
 
@@ -122,6 +124,7 @@ class Appointment(db.Model):
 
 
 # ---------- Medications ----------
+
 
 class Medication(db.Model):
     __tablename__ = "medications"
@@ -174,11 +177,14 @@ class MedicationEvent(db.Model):
     status = db.Column(db.String(20), nullable=False)  # scheduled/taken/skipped/missed
     notes = db.Column(db.Text)
 
+    # reminder_id = db.Column(db.String(255))
+
     medication = db.relationship("Medication", backref="events")
     patient = db.relationship("Patient", backref="medication_events")
 
 
 # ---------- Chat ----------
+
 
 class ChatSession(db.Model):
     __tablename__ = "chat_sessions"
@@ -231,6 +237,7 @@ class ChatMessage(db.Model):
 
 
 # ---------- Reports ----------
+
 
 class PatientReport(db.Model):
     __tablename__ = "patient_reports"

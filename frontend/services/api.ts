@@ -67,6 +67,18 @@ export type Medication = {
   created_at?: string | null;
 };
 
+// reusable input type for create/update
+export type MedicationInput = {
+  name: string;
+  dosage?: string;
+  frequency?: string;
+  route?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  instructions?: string;
+  is_active?: boolean;
+};
+
 export type Appointment = {
   id: string;
   patient_id: string;
@@ -113,6 +125,18 @@ export type PatientProfile = {
   allergies: string | null;
 };
 
+export type MedicationEvent = {
+  id: string;
+  medication_id: string;
+  name?: string | null;
+  dosage?: string | null;
+  scheduled_time: string;
+  taken_time?: string | null;
+  status: "scheduled" | "taken" | "skipped" | "missed";
+  notes?: string | null;
+  reminder_id?: string | null;
+};
+
 /* ---------- API ---------- */
 
 export const api = {
@@ -149,34 +173,14 @@ export const api = {
     return request("/medications");
   },
 
-  createMedication(data: {
-    name: string;
-    dosage?: string;
-    frequency?: string;
-    route?: string;
-    start_date?: string | null;
-    end_date?: string | null;
-    instructions?: string;
-  }): Promise<Medication> {
+  createMedication(data: MedicationInput): Promise<Medication> {
     return request("/medications", {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
 
-  updateMedication(
-    id: string,
-    data: Partial<{
-      name: string;
-      dosage: string;
-      frequency: string;
-      route: string;
-      start_date: string | null;
-      end_date: string | null;
-      instructions: string;
-      is_active: boolean;
-    }>
-  ): Promise<Medication> {
+  updateMedication(id: string, data: Partial<MedicationInput>): Promise<Medication> {
     return request(`/medications/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -222,12 +226,11 @@ export const api = {
     return request("/reports");
   },
 
-  // IMPORTANT: now uses FormData for file upload
+  // Uses FormData for file upload
   createReport(formData: FormData): Promise<PatientReport> {
     return request("/reports", {
       method: "POST",
-      body: formData, // no JSON stringify
-      // headers will be set by request(), without forcing Content-Type for FormData[web:1117][web:1120][web:1122]
+      body: formData,
     });
   },
 
@@ -267,5 +270,24 @@ export const api = {
 
   getProfile(): Promise<PatientProfile> {
     return request("/me/profile");
+  },
+
+  askNurse(payload: { message: string }): Promise<{ reply: string }> {
+    return request("/nurse/chat", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getTodayMedicationEvents(): Promise<MedicationEvent[]> {
+    return request("/medication-events/today");
+  },
+
+  markMedicationEventTaken(
+    id: string
+  ): Promise<{ ok: boolean; event_id: string }> {
+    return request(`/medication-events/${id}/mark-taken`, {
+      method: "PATCH",
+    });
   },
 };

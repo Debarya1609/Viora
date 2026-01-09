@@ -14,7 +14,7 @@ import {
   BottomTabBarProps,
 } from "@react-navigation/bottom-tabs";
 import { HomeScreen } from "../screens/Home/HomeScreen";
-import { MedicationsScreen } from "../screens/Medication/MedicationListScreen";
+import  MedicationsScreen  from "../screens/Medication/MedicationListScreen";
 import { ReportsScreen } from "../screens/Reports/ReportsScreen";
 import { NurseChatScreen } from "../screens/Nurse/NurseChatScreen";
 import { ProfileScreen } from "../screens/Profile/ProfileScreen";

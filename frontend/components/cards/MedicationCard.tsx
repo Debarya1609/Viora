@@ -2,16 +2,21 @@
 
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Pill } from "lucide-react-native";
+import { Pill, Trash2 } from "lucide-react-native";
 import { COLORS } from "../../constants/colors";
 import { Medication } from "../../services/api";
 
 type Props = {
   medication: Medication;
   onPress?: () => void;
+  onDelete?: () => void;
 };
 
-export const MedicationCard: React.FC<Props> = ({ medication, onPress }) => {
+export const MedicationCard: React.FC<Props> = ({
+  medication,
+  onPress,
+  onDelete,
+}) => {
   return (
     <TouchableOpacity
       style={styles.card}
@@ -37,16 +42,28 @@ export const MedicationCard: React.FC<Props> = ({ medication, onPress }) => {
         ) : null}
       </View>
 
-      <View style={styles.statusPill}>
-        <View
-          style={[
-            styles.statusDot,
-            { backgroundColor: medication.is_active ? "#22C55E" : "#9CA3AF" },
-          ]}
-        />
-        <Text style={styles.statusText}>
-          {medication.is_active ? "Active" : "Stopped"}
-        </Text>
+      <View style={{ alignItems: "flex-end" }}>
+        <View style={styles.statusPill}>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: medication.is_active ? "#22C55E" : "#9CA3AF" },
+            ]}
+          />
+          <Text style={styles.statusText}>
+            {medication.is_active ? "Active" : "Stopped"}
+          </Text>
+        </View>
+
+        {onDelete && (
+          <TouchableOpacity
+            onPress={onDelete}
+            style={styles.deleteButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Trash2 size={18} color="#DC2626" />
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -96,7 +113,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
@@ -112,5 +128,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     color: "#4B5563",
+  },
+  deleteButton: {
+    marginTop: 8,
+    alignSelf: "flex-end",
   },
 });

@@ -6,8 +6,9 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 from app import db
 from app.sql_models import User
@@ -136,3 +137,42 @@ def me():
             "name": user.name,
         }
     )
+
+
+# ---------- Shared auth helpers for other routes ----------
+
+def get_current_user():
+    """
+    Decode JWT from Authorization header and return User or None.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "").strip()
+
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+    user = User.query.get(payload.get("user_id"))
+    return user
+
+
+def auth_required(fn):
+    """
+    Decorator to protect routes with JWT.
+    Sets g.current_user when valid, else returns 401.
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 401
+        g.current_user = user
+        return fn(*args, **kwargs)
+
+    return wrapper

@@ -42,6 +42,7 @@ def create_app() -> Flask:
     from app.routes.routes_appointments import bp as appointments_bp
     from app.routes.routes_reports import bp as reports_bp
     from app.routes import routes_profile
+    from app.routes.routes_medication_events import bp as medication_events_bp  
 
     # from app.routes.routes_patient_ai import bp as patient_ai_bp
 
@@ -50,6 +51,7 @@ def create_app() -> Flask:
     app.register_blueprint(appointments_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(routes_profile.bp)
+    app.register_blueprint(medication_events_bp)
     # app.register_blueprint(patient_ai_bp)
 
     # --- Simple health check ---
