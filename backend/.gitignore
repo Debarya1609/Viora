@@ -1,0 +1,13 @@
+# Ignore a specific file
+.env
+secret_keys.txt
+
+# Ignore an entire directory
+node_modules/
+dist/
+__pycache__/
+
+# Ignore all files with a specific extension
+*.log
+*.tmp
+*.class
