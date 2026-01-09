@@ -41,12 +41,15 @@ def create_app() -> Flask:
     from app.routes.routes_medications import bp as medications_bp
     from app.routes.routes_appointments import bp as appointments_bp
     from app.routes.routes_reports import bp as reports_bp
-    # later: from app.routes_patient_ai import bp as patient_ai_bp
+    from app.routes import routes_profile
+
+    # from app.routes.routes_patient_ai import bp as patient_ai_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(medications_bp)
     app.register_blueprint(appointments_bp)
     app.register_blueprint(reports_bp)
+    app.register_blueprint(routes_profile.bp)
     # app.register_blueprint(patient_ai_bp)
 
     # --- Simple health check ---

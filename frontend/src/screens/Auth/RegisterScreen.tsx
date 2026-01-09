@@ -10,7 +10,6 @@ import {
   ScrollView,
   StatusBar,
   Image,
-  Alert,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -54,6 +53,28 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate("Login");
   };
 
+  const handleAuthSuccess = async () => {
+    try {
+      const status = await api.getProfileStatus();
+      if (status.needs_profile) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "ProfileOnboarding" }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "AppTabs" }],
+        });
+      }
+    } catch {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "AppTabs" }],
+      });
+    }
+  };
+
   const handleRegister = async () => {
     setError(null);
 
@@ -76,11 +97,9 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       setLoading(true);
-      // backend: you might add "name" field to /auth/register later
       const res = await api.register(email, password, fullName);
       setToken(res.token);
-      // later: navigate to ProfileSetup screen instead of AppTabs
-      navigation.replace("AppTabs");
+      await handleAuthSuccess();
     } catch (e: any) {
       setError(e.message || "Registration failed");
     } finally {
@@ -92,7 +111,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header row: back + small logo, aligned like Login */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={20} color={COLORS.textPrimary} />
@@ -104,7 +122,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.content, containerAnim]}>
-          {/* Logo + title */}
           <View style={styles.logoSection}>
             <View style={styles.logoWrapper}>
               <Image
@@ -117,7 +134,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.subtitle}>Join VIORA for better healthcare</Text>
           </View>
 
-          {/* Error */}
           {error && (
             <View style={styles.errorBox}>
               <AlertCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
@@ -125,9 +141,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
 
-          {/* Form */}
           <View style={styles.form}>
-            {/* Full Name */}
             <View style={styles.field}>
               <Text style={styles.label}>Full Name</Text>
               <View style={styles.inputWrapper}>
@@ -142,7 +156,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Email */}
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputWrapper}>
@@ -159,7 +172,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Password */}
             <View style={styles.field}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrapper}>
@@ -175,7 +187,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Confirm Password */}
             <View style={styles.field}>
               <Text style={styles.label}>Confirm Password</Text>
               <View style={styles.inputWrapper}>
@@ -191,7 +202,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Create Account button */}
             <TouchableOpacity
               onPress={handleRegister}
               style={styles.primaryButton}
@@ -203,15 +213,12 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Sign in link */}
             <View style={styles.loginRow}>
               <Text style={styles.loginLabel}>Already have an account? </Text>
               <TouchableOpacity onPress={handleNavigateToLogin}>
                 <Text style={styles.loginLink}>Sign in</Text>
               </TouchableOpacity>
             </View>
-
-            {/* reserved space for future: link to profile form screen */}
           </View>
         </Animated.View>
       </ScrollView>

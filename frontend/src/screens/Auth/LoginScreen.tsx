@@ -49,13 +49,35 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     navigation.goBack();
   };
 
+  const handleAuthSuccess = async () => {
+    try {
+      const status = await api.getProfileStatus();
+      if (status.needs_profile) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "ProfileOnboarding" }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "AppTabs" }],
+        });
+      }
+    } catch {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "AppTabs" }],
+      });
+    }
+  };
+
   const handleLogin = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await api.login(email, password);
       setToken(res.token);
-      navigation.replace("AppTabs");
+      await handleAuthSuccess();
     } catch (e: any) {
       setError(e.message || "Login failed");
     } finally {
@@ -85,15 +107,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleCreateAccount = () => {
-    // placeholder: you'll add Register screen later
-    navigation.navigate("Register" as never); 
+    navigation.navigate("Register" as never);
   };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Top row: back + logo inline so back button isn't floating out of place */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={20} color={COLORS.textPrimary} />
@@ -105,7 +125,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.content, headerStyle]}>
-          {/* Logo + title */}
           <View style={styles.logoSection}>
             <View style={styles.logoWrapper}>
               <Image
@@ -120,16 +139,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </View>
 
-          {/* Optional error message */}
-          {error && (
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
-          )}
+          {error && <Text style={styles.errorText}>{error}</Text>}
 
-          {/* Form */}
           <View style={styles.form}>
-            {/* Email */}
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputWrapper}>
@@ -146,7 +158,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Password */}
             <View style={styles.field}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrapper}>
@@ -162,14 +173,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Forgot password */}
             <View style={styles.forgotRow}>
               <TouchableOpacity onPress={handleForgotPassword}>
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Sign in */}
             <TouchableOpacity
               style={styles.signInButton}
               onPress={handleLogin}
@@ -181,14 +190,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.divider} />
               <Text style={styles.dividerText}>or continue with</Text>
               <View style={styles.divider} />
             </View>
 
-            {/* Social buttons */}
             <View style={styles.socialGroup}>
               <TouchableOpacity
                 style={styles.socialButton}
@@ -209,16 +216,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Create account */}
             <View style={styles.createRow}>
               <Text style={styles.createLabel}>Don't have an account? </Text>
               <TouchableOpacity onPress={handleCreateAccount}>
                 <Text style={styles.createLink}>Create account</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Space reserved for future: direct link to profile form after register */}
-            {/* e.g., "Complete your profile" banner will go here later */}
           </View>
         </Animated.View>
       </ScrollView>

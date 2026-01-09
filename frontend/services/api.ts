@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.101.9:5000"; 
+const API_URL = "http://192.168.101.6:5000";
 
 let token: string | null = null;
 
@@ -6,16 +6,27 @@ export function setToken(newToken: string | null) {
   token = newToken;
 }
 
+export function clearToken() {
+  token = null;
+}
+
 async function request(path: string, options: RequestInit = {}) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+  const baseHeaders: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
   };
-  if (token) headers.Authorization = `Bearer ${token}`;
+
+  // Detect FormData to avoid forcing JSON header
+  const isFormData = options.body instanceof FormData;
+  if (!isFormData) {
+    baseHeaders["Content-Type"] =
+      baseHeaders["Content-Type"] || "application/json";
+  }
+
+  if (token) baseHeaders.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers,
+    headers: baseHeaders,
   });
 
   const text = await res.text();
@@ -23,7 +34,7 @@ async function request(path: string, options: RequestInit = {}) {
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
-    // non‑JSON, ignore
+    // non-JSON response, ignore
   }
 
   if (!res.ok) {
@@ -62,7 +73,7 @@ export type Appointment = {
   doctor_id: string;
   start_time: string;
   end_time?: string | null;
-  status: string; // scheduled, completed, cancelled, no_show
+  status: string; // scheduled, completed, cancelled, no_show, confirmed, etc.
   reason?: string | null;
   notes?: string | null;
   created_at?: string | null;
@@ -77,6 +88,29 @@ export type PatientReport = {
   date?: string | null;
   notes?: string | null;
   created_at?: string | null;
+};
+
+export interface PatientProfilePayload {
+  full_name: string;
+  date_of_birth?: string | null;
+  gender: "Male" | "Female" | "Other";
+  phone?: string | null;
+  address?: string | null;
+  blood_group: string;
+  conditions?: string | null;
+  allergies?: string | null;
+}
+
+export type PatientProfile = {
+  id: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  phone: string | null;
+  address: string | null;
+  blood_group: string | null;
+  conditions: string | null;
+  allergies: string | null;
 };
 
 /* ---------- API ---------- */
@@ -188,16 +222,12 @@ export const api = {
     return request("/reports");
   },
 
-  createReport(data: {
-    patient_id?: string; // required if doctor
-    type?: string;
-    file_url: string;
-    date?: string;
-    notes?: string;
-  }): Promise<PatientReport> {
+  // IMPORTANT: now uses FormData for file upload
+  createReport(formData: FormData): Promise<PatientReport> {
     return request("/reports", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: formData, // no JSON stringify
+      // headers will be set by request(), without forcing Content-Type for FormData[web:1117][web:1120][web:1122]
     });
   },
 
@@ -220,5 +250,22 @@ export const api = {
     return request(`/reports/${id}`, {
       method: "DELETE",
     });
+  },
+
+  /* Profile */
+
+  getProfileStatus(): Promise<{ needs_profile: boolean }> {
+    return request("/me/profile-status");
+  },
+
+  updatePatientProfile(payload: PatientProfilePayload): Promise<PatientProfile> {
+    return request("/me/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getProfile(): Promise<PatientProfile> {
+    return request("/me/profile");
   },
 };

@@ -24,8 +24,16 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 import { COLORS } from "../../../constants/colors";
 import { api } from "../../../services/api";
+import * as DocumentPicker from "expo-document-picker";
+
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddReport">;
+
+type PickedFile = {
+  uri: string;
+  name: string;
+  type: string;
+};
 
 const REPORT_TYPES = [
   "Discharge Summary",
@@ -41,17 +49,35 @@ export const AddReportScreen: React.FC<Props> = ({ navigation }) => {
   const [hospitalName, setHospitalName] = useState("");
   const [doctorName, setDoctorName] = useState("");
   const [notes, setNotes] = useState("");
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<PickedFile | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleSelectFile = () => {
-    // later: integrate real file picker
-    setSelectedFile("medical_report_2026.pdf");
+  const handleSelectFile = async () => {
+  try {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "image/*"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (res.canceled) return;
+
+    const file = res.assets[0];
+
+    setSelectedFile({
+      uri: file.uri,
+      name: file.name ?? "report",
+      type: file.mimeType ?? "application/octet-stream",
+    });
+  } catch (err) {
+    Alert.alert("Error", "Failed to pick file.");
+    }
   };
+
 
   const handleSave = async () => {
     if (!reportType || !date || !hospitalName.trim() || !doctorName.trim()) {
@@ -62,18 +88,33 @@ export const AddReportScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    if (!selectedFile) {
+      Alert.alert("No file", "Please select a report file to upload.");
+      return;
+    }
+
     const isoDate = new Date(date).toISOString();
+    const metaNotes =
+      notes || `${hospitalName.trim()} - ${doctorName.trim()}`;
 
     try {
       setLoading(true);
-      await api.createReport({
-        type: reportType,
-        file_url: selectedFile || "dummy://local-report.pdf",
-        date: isoDate,
-        notes:
-          notes ||
-          `${hospitalName.trim()} - ${doctorName.trim()}`,
-      });
+
+      const formData = new FormData();
+      formData.append("type", reportType);
+      formData.append("date", isoDate);
+      formData.append("notes", metaNotes);
+      formData.append("hospital_name", hospitalName.trim());
+      formData.append("doctor_name", doctorName.trim());
+
+      formData.append("file", {
+        uri: selectedFile.uri,
+        name: selectedFile.name,
+        type: selectedFile.type,
+      } as any); // React Native FormData file object[web:1105]
+
+      await api.createReport(formData);
+
       Alert.alert("Success", "Report saved successfully.", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
@@ -178,7 +219,7 @@ export const AddReportScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* File upload (fake) */}
+        {/* File upload */}
         <View style={styles.field}>
           <Text style={styles.label}>Upload File</Text>
           <TouchableOpacity
@@ -203,7 +244,7 @@ export const AddReportScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             {selectedFile ? (
               <View>
-                <Text style={styles.uploadTitle}>{selectedFile}</Text>
+                <Text style={styles.uploadTitle}>{selectedFile.name}</Text>
                 <Text style={styles.uploadSubtitle}>Tap to change file</Text>
               </View>
             ) : (

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// src/screens/Profile/ProfileScreen.tsx
+
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,6 +8,8 @@ import {
   TouchableOpacity,
   Switch,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import {
   User,
@@ -16,12 +20,107 @@ import {
   ChevronRight,
   Shield,
 } from "lucide-react-native";
+import { api, clearToken } from "../../../services/api";
+import { COLORS } from "../../../constants/colors";     
+import { navigateRoot } from "../../navigation/RootNavigation"; 
 
-export function ProfileScreen() {
+type PatientProfile = {
+  id: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  phone: string | null;
+  address: string | null;
+  blood_group: string | null;
+  conditions: string | null;
+  allergies: string | null;
+};
+
+export function ProfileScreen({ navigation }: any) {
   const [medicationReminders, setMedicationReminders] = useState(true);
   const [appointmentReminders, setAppointmentReminders] = useState(true);
   const [dailyCheckIn, setDailyCheckIn] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setError(null);
+        const data = await api.getProfile();
+        setProfile(data);
+      } catch (e: any) {
+        setError(e.message || "Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
+
+  const ageText = useMemo(() => {
+    if (!profile?.date_of_birth) return "—";
+    try {
+      const dob = new Date(profile.date_of_birth);
+      const now = new Date();
+      let age = now.getFullYear() - dob.getFullYear();
+      const m = now.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) {
+        age--;
+      }
+      return `${age} years`;
+    } catch {
+      return "—";
+    }
+  }, [profile?.date_of_birth]);
+
+  const handleEditPersonal = () => {
+    console.log("Edit Personal pressed");
+    if (!profile) return;
+
+    const rootNav = navigation.getParent();
+    console.log("Parent nav state:", rootNav?.getState());
+
+    rootNav?.navigate("ProfileOnboarding", {
+      initialName: profile.full_name || "",
+    });
+  };
+
+  const handleLogout = async () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          clearToken();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Login" }],
+          });
+        },
+      },
+    ]);
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color={COLORS.primaryBlue} />
+      </View>
+    );
+  }
+
+  const name = profile?.full_name || "Your name";
+  const bloodGroup = profile?.blood_group || "—";
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -32,8 +131,10 @@ export function ProfileScreen() {
             <User color="#ffffff" size={40} />
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerName}>Sarah Williams</Text>
-            <Text style={styles.headerSubtitle}>Patient ID: VR-2026-4521</Text>
+            <Text style={styles.headerName}>{name}</Text>
+            <Text style={styles.headerSubtitle}>
+              Patient ID: {profile?.id || "—"}
+            </Text>
           </View>
         </View>
       </View>
@@ -46,20 +147,20 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.cardContent}>
-            <Row label="Full Name" value="Sarah Williams" />
-            <Row label="Age" value="45 years" />
-            <Row label="Blood Type" value="O+" />
-            <Row label="Height" value={`5'6"`} />
-            <Row label="Weight" value="150 lbs" />
+            <Row label="Full Name" value={name} />
+            <Row label="Age" value={ageText} />
+            <Row label="Gender" value={profile?.gender || "—"} />
+            <Row label="Blood Type" value={bloodGroup} />
+            {/* You can later add height/weight when model supports it */}
           </View>
 
-          <TouchableOpacity style={styles.cardFooterButton}>
+          <TouchableOpacity style={styles.cardFooterButton} onPress={handleEditPersonal}>
             <Text style={styles.cardFooterText}>Edit Personal Details</Text>
             <ChevronRight color="#2563eb" size={20} />
           </TouchableOpacity>
         </View>
 
-        {/* Connected Hospital/Doctor */}
+        {/* Connected Hospital/Doctor – still dummy for now */}
         <View style={styles.smallCard}>
           <View style={styles.smallCardRow}>
             <View style={styles.iconCircleGreen}>
@@ -81,7 +182,6 @@ export function ProfileScreen() {
           <Text style={styles.sectionTitle}>Settings</Text>
 
           <View style={styles.listCard}>
-            {/* Medication Schedule */}
             <TouchableOpacity style={styles.listItem}>
               <View style={styles.listItemLeft}>
                 <View style={styles.iconCircleBlue}>
@@ -92,7 +192,6 @@ export function ProfileScreen() {
               <ChevronRight color="#9ca3af" size={20} />
             </TouchableOpacity>
 
-            {/* Notification Settings */}
             <TouchableOpacity
               style={styles.listItem}
               onPress={() => setShowNotifications(!showNotifications)}
@@ -132,7 +231,6 @@ export function ProfileScreen() {
               </View>
             )}
 
-            {/* Language */}
             <TouchableOpacity style={styles.listItem}>
               <View style={styles.listItemLeft}>
                 <View style={styles.iconCirclePurple}>
@@ -156,8 +254,7 @@ export function ProfileScreen() {
               <Text style={styles.privacyTitle}>Privacy & Data Safety</Text>
               <Text style={styles.privacyText}>
                 Your health data is encrypted end-to-end and stored securely in
-                compliance with HIPAA regulations. We never share your
-                information without your explicit consent.
+                compliance with health data regulations.
               </Text>
               <TouchableOpacity>
                 <Text style={styles.privacyLink}>Read Privacy Policy →</Text>
@@ -167,13 +264,12 @@ export function ProfileScreen() {
         </View>
 
         {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut color="#dc2626" size={20} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        {/* App Info */}
-        <View style={styles.appInfo}>
+        <View className="appInfo">
           <Text style={styles.appInfoText}>VIORA v1.0.0</Text>
           <Text style={styles.appInfoText}>
             Your trusted post-discharge care companion
@@ -209,6 +305,9 @@ const ToggleRow = ({ label, value, onValueChange }: ToggleRowProps) => (
     />
   </View>
 );
+
+// styles: keep your existing StyleSheet as-is (no changes required)
+
 
 const styles = StyleSheet.create({
   container: {

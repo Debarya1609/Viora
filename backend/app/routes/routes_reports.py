@@ -6,8 +6,9 @@ from datetime import datetime
 import os
 from typing import Optional
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 import jwt
+from werkzeug.utils import secure_filename
 
 from app import db
 from app.sql_models import User, Patient, PatientReport
@@ -47,6 +48,20 @@ def report_to_dict(r: PatientReport) -> dict:
         "notes": r.notes,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
+
+
+def allowed_file(filename: str) -> bool:
+    """
+    Check extension against allowed set in config.
+    """
+    if "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    allowed = current_app.config.get(
+        "ALLOWED_REPORT_EXTENSIONS",
+        {"pdf", "png", "jpg", "jpeg"},
+    )
+    return ext in allowed  # basic extension filter[web:952][web:1130]
 
 
 @bp.get("")
@@ -89,38 +104,63 @@ def create_report():
     """
     POST /reports
 
-    Body:
-      {
-        "patient_id": "<uuid>",        # required for doctors; ignored for patient
-        "type": "lab" | "imaging" | ...,
-        "file_url": "https://...",     # for MVP, just a URL or placeholder
-        "date": "YYYY-MM-DD",
-        "notes": "optional notes"
-      }
+    Expects multipart/form-data:
 
-    - patient: can only create for themselves (patient_id inferred).
+    - file: the uploaded report file (PDF, image, etc.)
+    - type: optional string (e.g. "Discharge Summary", "Lab Report")
+    - date: optional ISO string (e.g. "2026-01-09T00:00:00Z" or "2026-01-09")
+    - notes: optional string
+    - patient_id: optional (required when user.role == "doctor")
+
+    - patient: can only create for themselves (patient_id inferred from Patient row).
     - doctor: must specify patient_id; uploaded_by = doctor user.id.
     """
     user = get_current_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json() or {}
+    # 1) Validate file
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-    file_url = (data.get("file_url") or "").strip()
-    if not file_url:
-        return jsonify({"error": "file_url is required for now"}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
 
-    report_type = data.get("type")
-    notes = data.get("notes")
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed"}), 400
+
+    # 2) Save file to UPLOAD_FOLDER
+    upload_root = current_app.config.get("UPLOAD_FOLDER")
+    if not upload_root:
+        # Sensible default if not configured
+        upload_root = os.path.join(current_app.instance_path, "uploads")
+        os.makedirs(upload_root, exist_ok=True)
+        current_app.config["UPLOAD_FOLDER"] = upload_root
+
+    filename = secure_filename(file.filename)
+    os.makedirs(upload_root, exist_ok=True)
+    save_path = os.path.join(upload_root, filename)
+    file.save(save_path)  # File is now on disk[web:952][web:1086][web:1133]
+
+    # 3) Read metadata from form fields
+    report_type = request.form.get("type")
+    notes = request.form.get("notes")
+    raw_date = request.form.get("date")
 
     date_value = None
-    if data.get("date"):
+    if raw_date:
+        # Allow both full ISO and simple YYYY-MM-DD
         try:
-            date_value = datetime.fromisoformat(data["date"]).date()
+            # If it has 'T', parse full ISO; else treat as date only
+            if "T" in raw_date:
+                date_value = datetime.fromisoformat(raw_date).date()
+            else:
+                date_value = datetime.fromisoformat(raw_date).date()
         except Exception:
             return jsonify({"error": "Invalid date"}), 400
 
+    # 4) Determine patient_id based on role
     if user.role == "patient":
         patient = Patient.query.get(user.id)
         if not patient:
@@ -130,13 +170,13 @@ def create_report():
             patient_id=patient.id,
             uploaded_by=user.id,
             type=report_type,
-            file_url=file_url,
+            file_url=save_path,  # store server path or relative path
             date=date_value,
             notes=notes,
         )
 
     elif user.role == "doctor":
-        patient_id = data.get("patient_id")
+        patient_id = request.form.get("patient_id")
         if not patient_id:
             return jsonify({"error": "patient_id is required"}), 400
 
@@ -144,7 +184,7 @@ def create_report():
             patient_id=patient_id,
             uploaded_by=user.id,
             type=report_type,
-            file_url=file_url,
+            file_url=save_path,
             date=date_value,
             notes=notes,
         )
@@ -164,6 +204,7 @@ def update_report(report_id):
     PUT/PATCH /reports/<id>
 
     Allow updating: type, file_url, date, notes.
+    (Still JSON-based; file replacement flow can be added later if needed.)
     """
     user = get_current_user()
     if not user:

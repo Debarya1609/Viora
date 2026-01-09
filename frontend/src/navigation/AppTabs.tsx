@@ -85,7 +85,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
           let IconComponent: React.ComponentType<any> = HomeIcon;
           if (route.name === "MedicationsTab") IconComponent = Pill;
           if (route.name === "ReportsTab") IconComponent = FileText;
-          if (route.name === "NurseTab") IconComponent = MessageCircle; 
+          if (route.name === "NurseTab") IconComponent = MessageCircle;
           if (route.name === "ProfileTab") IconComponent = User;
 
           return (
@@ -106,7 +106,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                       {
                         backgroundColor: isFocused
                           ? COLORS.primaryBlue
-                          : "#469de5ff",
+                          : "rgb(117, 145, 167)",
                       },
                     ]}
                   >

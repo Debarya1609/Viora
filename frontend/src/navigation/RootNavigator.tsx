@@ -4,18 +4,24 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { WelcomeScreen } from "../screens/Auth/WelcomeScreen";
 import { LoginScreen } from "../screens/Auth/LoginScreen";
+import { RegisterScreen } from "../screens/Auth/RegisterScreen";
 import { AppTabs } from "./AppTabs";
 import { MedicationFormScreen } from "../screens/Medication/AddMedicationScreen";
 import { NurseChatScreen } from "../screens/Nurse/NurseChatScreen";
-import { RegisterScreen } from "../screens/Auth/RegisterScreen";
 import { AddReportScreen } from "../screens/Reports/AddReportsScreen";
 import { AddAppointmentScreen } from "../screens/Reports/AddAppointmentScreen";
+import { ProfileOnboardingScreen } from "../screens/Profile/ProfileOnboardingScreen";
 
 export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
-  AppTabs: undefined; 
+  AppTabs: undefined;
+  ProfileOnboarding:
+    | {
+        initialName?: string;
+      }
+    | undefined;
   AddMedication: undefined;
   AddAppointment: undefined;
   AddReport: undefined;
@@ -34,17 +40,22 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
 
-      {/* Main app after auth (includes ProfileTab inside AppTabs) */}
+      {/* Profile onboarding (forced after auth if needed) */}
+      <Stack.Screen
+        name="ProfileOnboarding"
+        component={ProfileOnboardingScreen}
+      />
+
+      {/* Main app after auth (includes Profile tab inside AppTabs) */}
       <Stack.Screen name="AppTabs" component={AppTabs} />
 
       {/* Medication flow */}
       <Stack.Screen name="AddMedication" component={MedicationFormScreen} />
 
-      {/* Optional full-screen nurse chat */}
+      {/* Nurse chat & records */}
       <Stack.Screen name="NurseChat" component={NurseChatScreen} />
       <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} />
       <Stack.Screen name="AddReport" component={AddReportScreen} />
-
     </Stack.Navigator>
   );
 };
