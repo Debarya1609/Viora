@@ -1,8 +1,4 @@
 # Ignore a specific file
-.env
-.env.local/
-.env.*
-secret_keys.txt
 
 # Ignore an entire directory
 node_modules/
@@ -13,3 +9,8 @@ __pycache__/
 *.log
 *.tmp
 *.class
+
+.env
+.env.local
+.env.* 
+secret_keys.txt
