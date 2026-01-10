@@ -1,5 +1,6 @@
 # Ignore a specific file
 .env
+.env.local
 secret_keys.txt
 
 # Ignore an entire directory
