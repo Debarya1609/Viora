@@ -42,9 +42,9 @@ def create_app() -> Flask:
     from app.routes.routes_appointments import bp as appointments_bp
     from app.routes.routes_reports import bp as reports_bp
     from app.routes import routes_profile
-    from app.routes.routes_medication_events import bp as medication_events_bp  
-
-    # from app.routes.routes_patient_ai import bp as patient_ai_bp
+    from app.routes.routes_medication_events import bp as medication_events_bp
+    from app.routes.routes_nurse import bp as nurse_bp
+    from app.routes.patient_ai import patient_ai_bp  # if you want /patient/ai
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(medications_bp)
@@ -52,7 +52,8 @@ def create_app() -> Flask:
     app.register_blueprint(reports_bp)
     app.register_blueprint(routes_profile.bp)
     app.register_blueprint(medication_events_bp)
-    # app.register_blueprint(patient_ai_bp)
+    app.register_blueprint(nurse_bp)
+    app.register_blueprint(patient_ai_bp)  # comment out if unused
 
     # --- Simple health check ---
     @app.get("/health")

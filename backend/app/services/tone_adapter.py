@@ -1,16 +1,28 @@
 def adapt_tone(ai_result: dict, patient_context: dict) -> dict:
-    message = ai_result.get("ai_explanation", "")
-    mood = patient_context.get("mood", "neutral")
-    risk = ai_result.get("risk_level", "LOW")
+    """
+    Take structured AI result + patient context and produce a humanized message.
+    """
+    # Fallbacks for robustness
+    raw_message = (
+        ai_result.get("ai_explanation")
+        or (ai_result.get("counselling") or {}).get("message")
+        or ""
+    )
 
-    prefix = ""
+    mood = (patient_context.get("mood") or "neutral").lower()
+    risk = (ai_result.get("risk_level") or "LOW").upper()
+
+    # Mood-based prefix
     if mood == "anxious":
         prefix = "I understand this can feel worrying. "
     elif mood == "sad":
         prefix = "I'm really sorry you're feeling this way. "
     elif mood == "angry":
         prefix = "It sounds frustrating to deal with this. "
+    else:
+        prefix = ""
 
+    # Risk-based suffix
     if risk == "HIGH":
         suffix = " Please consider contacting a doctor as soon as possible."
     elif risk == "MEDIUM":
@@ -18,9 +30,13 @@ def adapt_tone(ai_result: dict, patient_context: dict) -> dict:
     else:
         suffix = " Many people experience this temporarily."
 
+    message = (prefix + raw_message + suffix).strip()
+
     return {
-        "message": prefix + message + suffix,
+        "message": message,
         "risk_level": risk,
         "escalation": ai_result.get("escalation"),
-        "confidence": ai_result.get("confidence")
+        "confidence": ai_result.get("confidence"),
+        "safety_flags": ai_result.get("safety_flags"),
+        "disclaimer": ai_result.get("disclaimer"),
     }

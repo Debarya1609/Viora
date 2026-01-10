@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import os
 from typing import Optional
+from uuid import UUID
 
 from flask import Blueprint, jsonify, request
 import jwt
 
 from app.sql_models import User, Patient, Medication, Appointment, PatientReport
-from app.services.ai_orchestrator import generate_nurse_reply  # <== use your AI here
+from app.services.ai_handler import handle_patient_ai
 
 bp = Blueprint("nurse", __name__, url_prefix="/nurse")
 
@@ -40,7 +41,7 @@ def nurse_chat():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     message = (data.get("message") or "").strip()
     if not message:
         return jsonify({"error": "message is required"}), 400
@@ -69,13 +70,42 @@ def nurse_chat():
         else []
     )
 
-    # Call your existing model/orchestrator with full context
-    reply_text = generate_nurse_reply(
-        user_message=message,
-        medications=meds,
-        reports=reports,
-        appointments=appointments,
-        patient=patient,
-    )
+    # Ensure patient_id is JSON-serializable
+    patient_id = patient.id if patient else None
+    if isinstance(patient_id, UUID):
+        patient_id = str(patient_id)
 
-    return jsonify({"reply": reply_text})
+    # Build rich context payload for central + tone pipeline
+    context_payload = {
+        "patient_id": patient_id,
+        "message": message,
+        "symptoms": data.get("symptoms") or [],
+        "mood": data.get("mood") or "neutral",
+        "days_post_discharge": data.get("days_post_discharge"),
+        "medications": [m.name for m in meds],
+        "reports": [r.to_dict() for r in reports]
+        if hasattr(PatientReport, "to_dict")
+        else [],
+        "appointments": [a.to_dict() for a in appointments]
+        if hasattr(Appointment, "to_dict")
+        else [],
+    }
+
+    try:
+        ai_result = handle_patient_ai(context_payload)
+
+        return jsonify(
+            {
+                "reply": ai_result.get("patient_message"),
+                "risk_level": ai_result.get("risk_level"),
+                "confidence": ai_result.get("confidence"),
+                "escalation": ai_result.get("escalation"),
+                "safety_flags": ai_result.get("safety_flags"),
+                "clinical_signals": ai_result.get("clinical_signals"),
+                "disclaimer": ai_result.get("disclaimer"),
+            }
+        ), 200
+
+    except Exception as e:
+        print("nurse_chat error:", e)
+        return jsonify({"error": "Failed to generate nurse reply"}), 500

@@ -2,8 +2,11 @@
 
 import React, { useState } from "react";
 import { View } from "react-native";
-import { NurseChatBox, ChatMessage } from "../../../components/cards/NurseChatBox";
-import { api } from "../../../services/api"; // you’ll add askNurse later
+import {
+  NurseChatBox,
+  ChatMessage,
+} from "../../../components/cards/NurseChatBox";
+import { api } from "../../../services/api";
 import { COLORS } from "../../../constants/colors";
 
 export const NurseChatScreen: React.FC<any> = ({ route }) => {
@@ -40,11 +43,11 @@ export const NurseChatScreen: React.FC<any> = ({ route }) => {
     setIsTyping(true);
 
     try {
-      // TODO: call backend nurse endpoint instead of dummy
-      // const res = await api.askNurse({ message: text });
-      // const replyText = res.reply;
+      // Call backend nurse endpoint
+      const res = await api.askNurse({ message: text });
       const replyText =
-        "Thanks for your question. I’m still being connected to your medical records, but for now this is a placeholder response.";
+        res.reply ??
+        "I’m here with you. Based on what we understand so far, let’s go through this together.";
 
       const nurseMsg: ChatMessage = {
         id: `nurse-${Date.now()}`,
@@ -67,9 +70,8 @@ export const NurseChatScreen: React.FC<any> = ({ route }) => {
     }
   };
 
-  const handleMicPress = async () => {
+  const handleMicPress = () => {
     // Placeholder for voice logic
-    // Later: start/stop recording with expo-av and send audio to backend STT[web:1160][web:1197]
     setIsRecording((prev) => !prev);
   };
 
