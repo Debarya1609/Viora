@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.31.247:5000";
+const API_URL = "http://{your-ip-address}:5000";
 
 let token: string | null = null;
 
