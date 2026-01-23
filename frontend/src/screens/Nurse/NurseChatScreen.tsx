@@ -16,7 +16,7 @@ export const NurseChatScreen: React.FC<any> = ({ route }) => {
     {
       id: "welcome-1",
       type: "nurse",
-      text: `Hello ${userName}! I'm VIORA, your AI nurse. I'm here to support your recovery. How are you feeling today?`,
+      text: `Hello ${userName}! I'm VIORA, your AI health assistant. I can answer general questions like treatments or typical healing times. What would you like to ask today?`,
       time: "Now",
     },
   ]);
@@ -43,7 +43,7 @@ export const NurseChatScreen: React.FC<any> = ({ route }) => {
     setIsTyping(true);
 
     try {
-      // Call backend nurse endpoint
+      // Call backend health assistant endpoint
       const res = await api.askNurse({ message: text });
       const replyText =
         res.reply ??
@@ -61,7 +61,7 @@ export const NurseChatScreen: React.FC<any> = ({ route }) => {
         id: `nurse-error-${Date.now()}`,
         type: "nurse",
         text:
-          "Sorry, I couldn’t reach the nurse service right now. Please try again in a few moments.",
+          "Sorry, I couldn’t reach the assistant service right now. Please try again in a few moments.",
         time: "Now",
       };
       addMessage(errMsg);
@@ -90,12 +90,12 @@ export const NurseChatScreen: React.FC<any> = ({ route }) => {
         isRecording={isRecording}
         onMicPress={handleMicPress}
         quickReplies={[
-          "How should I take my meds?",
-          "Report a side effect",
+          "What are the common treatments for a cold?",
+          "How to manage stress effectively?",
         ]}
         onQuickReplyPress={handleQuickReply}
-        headerTitle="VIORA Nurse"
-        headerSubtitle="Online • Responds in under 1 min"
+        headerTitle="VIORA Health Assistant"
+        headerSubtitle="Online • Answers general health questions"
       />
     </View>
   );

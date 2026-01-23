@@ -7,7 +7,7 @@ from uuid import UUID
 from flask import Blueprint, jsonify, request
 import jwt
 
-from app.sql_models import User, Patient, Medication, Appointment, PatientReport
+from app.sql_models import User, Patient  # Meds/Reports/Appointments not needed for now
 from app.services.ai_handler import handle_patient_ai
 
 bp = Blueprint("nurse", __name__, url_prefix="/nurse")
@@ -36,6 +36,10 @@ def nurse_chat():
     """
     POST /nurse/chat
     Body: { "message": "text from user" }
+
+    For now the nurse acts as a general health information chatbot
+    (treatments, healing times, etc.), without using personal history,
+    medications, or reports.
     """
     user = get_current_user()
     if not user:
@@ -46,49 +50,20 @@ def nurse_chat():
     if not message:
         return jsonify({"error": "message is required"}), 400
 
+    # Optional: keep patient_id only as a simple identifier, not for context
     patient = Patient.query.get(user.id) if user.role == "patient" else None
-
-    meds = (
-        Medication.query.filter_by(patient_id=patient.id, is_active=True).all()
-        if patient
-        else []
-    )
-    reports = (
-        PatientReport.query.filter_by(patient_id=patient.id)
-        .order_by(PatientReport.date.desc(), PatientReport.created_at.desc())
-        .limit(10)
-        .all()
-        if patient
-        else []
-    )
-    appointments = (
-        Appointment.query.filter_by(patient_id=patient.id)
-        .order_by(Appointment.start_time.desc())
-        .limit(10)
-        .all()
-        if patient
-        else []
-    )
-
-    # Ensure patient_id is JSON-serializable
     patient_id = patient.id if patient else None
     if isinstance(patient_id, UUID):
         patient_id = str(patient_id)
 
-    # Build rich context payload for central + tone pipeline
+    # Simplified context payload: no meds/reports/appointments for now
     context_payload = {
-        "patient_id": patient_id,
-        "message": message,
-        "symptoms": data.get("symptoms") or [],
-        "mood": data.get("mood") or "neutral",
-        "days_post_discharge": data.get("days_post_discharge"),
-        "medications": [m.name for m in meds],
-        "reports": [r.to_dict() for r in reports]
-        if hasattr(PatientReport, "to_dict")
-        else [],
-        "appointments": [a.to_dict() for a in appointments]
-        if hasattr(Appointment, "to_dict")
-        else [],
+        "patient_id": patient_id,                # not used by Gemini yet
+        "message": message,                      # main question (fever treatment, healing time, etc.)
+        "symptoms": data.get("symptoms") or [],  # optional
+        "mood": data.get("mood") or "neutral",   # for tone adaptation
+        "days_post_discharge": data.get("days_post_discharge"),  # optional, can be None
+        # NOTE: medications / reports / appointments intentionally omitted
     }
 
     try:

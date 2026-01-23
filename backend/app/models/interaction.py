@@ -26,7 +26,7 @@ class Message:
     """
 
     id: UUID = field(default_factory=uuid4)
-    session_id: Optional[UUID] = None           # link to ChatSession.id if needed
+    session_id: Optional[UUID] = None          # link to ChatSession.id if needed
     role: Role = Role.USER
     content: str = ""
     created_at: datetime = field(
@@ -42,8 +42,8 @@ class ChatSummary:
     (risk scores, topics, sentiment, etc.).
     """
 
-    risk_level: Optional[str] = None            # e.g. "low", "medium", "high"
-    sentiment: Optional[str] = None             # e.g. "positive", "neutral", "negative"
+    risk_level: Optional[str] = None           # e.g. "LOW", "MEDIUM", "HIGH"
+    sentiment: Optional[str] = None            # e.g. "positive", "neutral", "negative"
     key_points: List[str] = field(default_factory=list)
     follow_up_actions: List[str] = field(default_factory=list)
     raw_scores: Dict[str, Any] = field(default_factory=dict)  # numeric scores per engine
@@ -57,9 +57,9 @@ class ChatSessionInteraction:
     """
 
     id: UUID = field(default_factory=uuid4)
-    patient_id: Optional[UUID] = None           # maps to patients.id
-    doctor_id: Optional[UUID] = None            # maps to doctors.id (if doctor chat)
-    type: str = "ai"                            # "ai" or "doctor"
+    patient_id: Optional[UUID] = None          # maps to patients.id (optional for generic chatbot)
+    doctor_id: Optional[UUID] = None           # maps to doctors.id (if doctor chat)
+    type: str = "ai"                           # "ai" or "doctor"
     title: Optional[str] = None
     messages: List[Message] = field(default_factory=list)
     summary: Optional[ChatSummary] = None
@@ -91,8 +91,9 @@ class ChatSessionInteraction:
 
     def to_llm_messages(self) -> List[Dict[str, str]]:
         """
-        Convert conversation into OpenAI-style messages list:
+        Convert conversation into OpenAI/Gemini-compatible messages list:
         [{ "role": "user" | "assistant" | "system", "content": "..." }, ...]
+        Used directly with the Gemini OpenAI-compatible chat completions API.
         """
         return [
             {"role": msg.role.value, "content": msg.content}

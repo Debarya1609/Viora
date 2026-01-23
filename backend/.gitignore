@@ -1,16 +1,43 @@
-# Ignore a specific file
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# Ignore an entire directory
+# dependencies
 node_modules/
+
+# Expo
+.expo/
 dist/
-__pycache__/
+web-build/
+expo-env.d.ts
 
-# Ignore all files with a specific extension
-*.log
-*.tmp
-*.class
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
-.env
-.env.local
-.env.* 
-secret_keys.txt
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android

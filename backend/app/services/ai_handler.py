@@ -5,8 +5,8 @@ from app.services.tone_transformer import transform_to_human_tone
 def handle_patient_ai(payload: dict) -> dict:
     """
     Main orchestration function for patient AI flow in Viora.
-    - Calls central backend for risk + explanation
-    - Applies tone transformer to the explanation
+    - Calls central backend for risk + explanation (Gemini or fallback)
+    - Applies tone transformer to the explanation (if available)
     - Returns a clean, patient-facing object
     """
 
@@ -19,8 +19,10 @@ def handle_patient_ai(payload: dict) -> dict:
         or ""
     )
     risk_level = central_result.get("risk_level", "UNKNOWN")
+    safety_flags = central_result.get("safety_flags") or {}
 
     # Step 2: Convert to patient-friendly tone
+    # If AI is unavailable or tone model missing, transform_to_human_tone will safely fall back.
     patient_message = transform_to_human_tone(
         clinical_text=base_explanation,
         risk_level=risk_level,
@@ -33,7 +35,7 @@ def handle_patient_ai(payload: dict) -> dict:
         "patient_message": patient_message,
         "confidence": central_result.get("confidence"),
         "escalation": central_result.get("escalation"),
-        "safety_flags": central_result.get("safety_flags"),
+        "safety_flags": safety_flags,
         "clinical_signals": central_result.get("clinical_signals"),
         "disclaimer": central_result.get("disclaimer"),
     }

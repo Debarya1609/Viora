@@ -1,5 +1,3 @@
-# app/models/patient.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,8 +16,8 @@ class EmergencyContact:
 @dataclass
 class MedicationSummary:
     """
-    Lightweight view of a patient's medication for AI context.
-    This mirrors key fields from the `medications` table.
+    Kept for future use when you allow users to select a medication
+    to ask about. Not used in current generic chatbot flow.
     """
     id: UUID
     name: str
@@ -32,12 +30,13 @@ class MedicationSummary:
 @dataclass
 class AppointmentSummary:
     """
-    Lightweight view of appointments for AI context.
+    Kept for future use (select an appointment/report to discuss).
+    Not used in current generic chatbot flow.
     """
     id: UUID
     doctor_name: Optional[str]
     start_time: datetime
-    status: str  # scheduled, completed, cancelled, no_show
+    status: str
 
 
 @dataclass
@@ -45,9 +44,13 @@ class PatientContext:
     """
     In-memory patient model used by the AI orchestration layer.
 
-    - `patient_id` maps to patients.id in Postgres
-    - `user_id` maps to users.id
-    - This object can be built from DB rows and passed into the AI engines.
+    For the current version of Viora, the chatbot behaves as a
+    general medical information assistant and does NOT use personal
+    medications, reports, or appointments in prompts.
+
+    These fields stay so you can plug them in later when you add:
+    - 'ask about this medication'
+    - 'ask about this report/appointment'
     """
 
     patient_id: UUID = field(default_factory=uuid4)
@@ -58,9 +61,9 @@ class PatientContext:
     gender: Optional[str] = None
 
     emergency_contact: Optional[EmergencyContact] = None
-    medical_summary: Optional[str] = None  # high-level history / conditions
+    medical_summary: Optional[str] = None
 
-    # Simple lists, populated from DB when needed
+    # Lists kept for future richer context (not used in prompts yet)
     active_medications: List[MedicationSummary] = field(default_factory=list)
     upcoming_appointments: List[AppointmentSummary] = field(default_factory=list)
 
@@ -79,12 +82,19 @@ class PatientContext:
         return (
             today.year
             - self.date_of_birth.year
-            - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+            - (
+                (today.month, today.day)
+                < (self.date_of_birth.month, self.date_of_birth.day)
+            )
         )
 
     def to_ai_context(self) -> Dict[str, Any]:
         """
         Convert to a compact dict the AI prompt builders can use.
+
+        For now, only identity/demographics are provided.
+        Medication/report/appointment details are excluded from
+        prompts until the user explicitly selects them in a future update.
         """
         return {
             "patient_id": str(self.patient_id),
@@ -100,25 +110,6 @@ class PatientContext:
             }
             if self.emergency_contact
             else None,
-            "active_medications": [
-                {
-                    "id": str(m.id),
-                    "name": m.name,
-                    "dosage": m.dosage,
-                    "frequency": m.frequency,
-                    "route": m.route,
-                    "is_active": m.is_active,
-                }
-                for m in self.active_medications
-            ],
-            "upcoming_appointments": [
-                {
-                    "id": str(a.id),
-                    "doctor_name": a.doctor_name,
-                    "start_time": a.start_time.isoformat(),
-                    "status": a.status,
-                }
-                for a in self.upcoming_appointments
-            ],
+            # NOTE: not passing detailed meds/appointments now
             "extras": self.extras,
         }

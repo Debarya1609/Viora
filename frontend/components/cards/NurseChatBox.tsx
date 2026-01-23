@@ -48,8 +48,8 @@ export const NurseChatBox: React.FC<Props> = ({
   onMicPress,
   quickReplies = [],
   onQuickReplyPress,
-  headerTitle = "VIORA Nurse",
-  headerSubtitle = "Online • Responds in under 1 min",
+  headerTitle = "VIORA Health Assistant",
+  headerSubtitle = "Online • Answers general health questions",
 }) => {
   const scrollRef = useRef<ScrollView | null>(null);
 

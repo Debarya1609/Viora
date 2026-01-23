@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.101.12:5000";
+const API_URL = "http://192.168.31.247:5000";
 
 let token: string | null = null;
 
@@ -67,7 +67,6 @@ export type Medication = {
   created_at?: string | null;
 };
 
-// reusable input type for create/update
 export type MedicationInput = {
   name: string;
   dosage?: string;
@@ -85,7 +84,7 @@ export type Appointment = {
   doctor_id: string;
   start_time: string;
   end_time?: string | null;
-  status: string; // scheduled, completed, cancelled, no_show, confirmed, etc.
+  status: string;
   reason?: string | null;
   notes?: string | null;
   created_at?: string | null;
@@ -135,6 +134,25 @@ export type MedicationEvent = {
   status: "scheduled" | "taken" | "skipped" | "missed";
   notes?: string | null;
   reminder_id?: string | null;
+};
+
+/* Nurse chat types */
+
+export type AskNurseRequest = {
+  message: string;
+  symptoms?: string[];        // optional; future use
+  mood?: string;              // optional; used for tone/adapt_tone
+  days_post_discharge?: number | null; // optional; currently generic
+};
+
+export type AskNurseResponse = {
+  reply: string;
+  risk_level?: string | null;
+  confidence?: number | null;
+  escalation?: any;
+  safety_flags?: Record<string, any> | null;
+  clinical_signals?: Record<string, any> | null;
+  disclaimer?: string | null;
 };
 
 /* ---------- API ---------- */
@@ -200,8 +218,8 @@ export const api = {
   },
 
   createAppointment(data: {
-    patient_id?: string; // required if doctor
-    doctor_id?: string; // required if patient
+    patient_id?: string;
+    doctor_id?: string;
     start_time: string;
     end_time?: string | null;
     reason?: string;
@@ -226,7 +244,6 @@ export const api = {
     return request("/reports");
   },
 
-  // Uses FormData for file upload
   createReport(formData: FormData): Promise<PatientReport> {
     return request("/reports", {
       method: "POST",
@@ -272,7 +289,9 @@ export const api = {
     return request("/me/profile");
   },
 
-  askNurse(payload: { message: string }): Promise<{ reply: string }> {
+  /* Nurse chat / Gemini health assistant */
+
+  askNurse(payload: AskNurseRequest): Promise<AskNurseResponse> {
     return request("/nurse/chat", {
       method: "POST",
       body: JSON.stringify(payload),
